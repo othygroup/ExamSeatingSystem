@@ -1,0 +1,539 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import java.util.List;
+
+/**
+ * Main class to launch the Exam Seating Arrangement System
+ */
+public class ExamSeatingSystem {
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            LoginWindow loginWindow = new LoginWindow();
+            loginWindow.setVisible(true);
+        });
+    }
+}
+
+/**
+ * Represents a student with all relevant information
+ */
+class Student {
+    private String registrationNumber;
+    private String name;
+    private String program;
+    private String password;
+    private int semester;
+    private List<String> courses;
+
+    public Student(String registrationNumber, String name, String program, 
+                   String password, int semester, List<String> courses) {
+        this.registrationNumber = registrationNumber;
+        this.name = name;
+        this.program = program;
+        this.password = password;
+        this.semester = semester;
+        this.courses = courses;
+    }
+
+    // Getters and setters
+    public String getRegistrationNumber() { return registrationNumber; }
+    public String getName() { return name; }
+    public String getProgram() { return program; }
+    public boolean checkPassword(String input) { return password.equals(input); }
+    public int getSemester() { return semester; }
+    public List<String> getCourses() { return courses; }
+}
+
+/**
+ * Represents an exam room with capacity and seating information
+ */
+class ExamRoom {
+    private String roomId;
+    private String building;
+    private int capacity;
+    private Map<String, Student> seatAssignments; // Key: seat number, Value: student
+
+    public ExamRoom(String roomId, String building, int capacity) {
+        this.roomId = roomId;
+        this.building = building;
+        this.capacity = capacity;
+        this.seatAssignments = new HashMap<>();
+    }
+
+    // Getters and setters
+    public String getRoomId() { return roomId; }
+    public String getBuilding() { return building; }
+    public int getCapacity() { return capacity; }
+    public int getAvailableSeats() { return capacity - seatAssignments.size(); }
+    public Map<String, Student> getSeatAssignments() { return seatAssignments; }
+
+    /**
+     * Assigns a student to a specific seat
+     * @param seatNumber The seat identifier (e.g., "A1")
+     * @param student The student to assign
+     * @return true if assignment was successful, false otherwise
+     */
+    public boolean assignStudent(String seatNumber, Student student) {
+        if (seatAssignments.size() >= capacity) return false;
+        seatAssignments.put(seatNumber, student);
+        return true;
+    }
+}
+
+/**
+ * Main system class that manages all data and operations
+ */
+class SeatingSystem {
+    private List<Student> students;
+    private List<ExamRoom> examRooms;
+    private Map<String, Map<String, String>> seatingArrangements; // Key: examId, Value: map of studentId to seat
+
+    public SeatingSystem() {
+        this.students = new ArrayList<>();
+        this.examRooms = new ArrayList<>();
+        this.seatingArrangements = new HashMap<>();
+        initializeSampleData();
+    }
+
+    private void initializeSampleData() {
+        // Sample students
+        students.add(new Student("2023IT001", "John Doe", "BSc IT", "pass123", 2, 
+                Arrays.asList("CS101", "CS102", "MATH101")));
+        students.add(new Student("2023IT002", "Jane Smith", "BSc IT", "pass456", 2, 
+                Arrays.asList("CS101", "CS102", "PHYS101")));
+        students.add(new Student("2023CS001", "Bob Johnson", "BSc CS", "pass789", 2, 
+                Arrays.asList("CS101", "CS103", "MATH101")));
+
+        // Sample rooms
+        examRooms.add(new ExamRoom("A12", "Main Building", 50));
+        examRooms.add(new ExamRoom("B05", "North Building", 100));
+    }
+
+    // Student operations
+    public Student authenticateStudent(String regNumber, String password) {
+        for (Student student : students) {
+            if (student.getRegistrationNumber().equals(regNumber) {
+                if (student.checkPassword(password)) {
+                    return student;
+                }
+                return null; // Password doesn't match
+            }
+        }
+        return null; // Student not found
+    }
+
+    // Room operations
+    public void addExamRoom(String roomId, String building, int capacity) {
+        examRooms.add(new ExamRoom(roomId, building, capacity));
+    }
+
+    /**
+     * Generates seating arrangement for an exam
+     * @param examId Identifier for the exam
+     * @return true if generation was successful, false otherwise
+     */
+    public boolean generateSeatingArrangement(String examId) {
+        // Simple algorithm: assign students to rooms with available seats
+        // In a real system, this would be more sophisticated
+        Map<String, String> arrangement = new HashMap<>();
+        int studentIndex = 0;
+        
+        for (ExamRoom room : examRooms) {
+            int seatsUsed = 0;
+            int rows = room.getCapacity() / 10; // Assuming 10 seats per row
+            char rowChar = 'A';
+            
+            while (studentIndex < students.size() && seatsUsed < room.getCapacity()) {
+                String seatNumber = rowChar + String.valueOf((seatsUsed % 10) + 1);
+                arrangement.put(students.get(studentIndex).getRegistrationNumber(), 
+                              room.getRoomId() + "-" + seatNumber);
+                
+                seatsUsed++;
+                studentIndex++;
+                if (seatsUsed % 10 == 0) rowChar++;
+            }
+            
+            if (studentIndex >= students.size()) break;
+        }
+        
+        if (studentIndex < students.size()) {
+            return false; // Not enough seats for all students
+        }
+        
+        seatingArrangements.put(examId, arrangement);
+        return true;
+    }
+
+    public String getStudentSeat(String examId, String regNumber) {
+        if (!seatingArrangements.containsKey(examId)) return null;
+        return seatingArrangements.get(examId).get(regNumber);
+    }
+
+    public List<ExamRoom> getExamRooms() { return examRooms; }
+}
+
+/**
+ * Login window for both students and admins
+ */
+class LoginWindow extends JFrame {
+    private SeatingSystem system;
+    private JTextField studentRegField, adminIdField;
+    private JPasswordField studentPassField, adminPassField;
+
+    public LoginWindow() {
+        this.system = new SeatingSystem();
+        setupUI();
+    }
+
+    private void setupUI() {
+        setTitle("Exam Seating System - Login");
+        setSize(600, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new GridLayout(1, 2));
+
+        // Student login panel
+        JPanel studentPanel = new JPanel(new GridBagLayout());
+        studentPanel.setBorder(BorderFactory.createTitledBorder("Student Login"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0; gbc.gridy = 0;
+        studentPanel.add(new JLabel("Registration Number:"), gbc);
+        gbc.gridx = 1;
+        studentRegField = new JTextField(15);
+        studentPanel.add(studentRegField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        studentPanel.add(new JLabel("Password:"), gbc);
+        gbc.gridx = 1;
+        studentPassField = new JPasswordField(15);
+        studentPanel.add(studentPassField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        JButton studentLoginBtn = new JButton("Student Login");
+        studentLoginBtn.addActionListener(e -> handleStudentLogin());
+        studentPanel.add(studentLoginBtn, gbc);
+
+        // Admin login panel
+        JPanel adminPanel = new JPanel(new GridBagLayout());
+        adminPanel.setBorder(BorderFactory.createTitledBorder("Admin Login"));
+        
+        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 1;
+        gbc.anchor = GridBagConstraints.WEST;
+        adminPanel.add(new JLabel("Admin ID:"), gbc);
+        gbc.gridx = 1;
+        adminIdField = new JTextField(15);
+        adminPanel.add(adminIdField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        adminPanel.add(new JLabel("Password:"), gbc);
+        gbc.gridx = 1;
+        adminPassField = new JPasswordField(15);
+        adminPanel.add(adminPassField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        JButton adminLoginBtn = new JButton("Admin Login");
+        adminLoginBtn.addActionListener(e -> handleAdminLogin());
+        adminPanel.add(adminLoginBtn, gbc);
+
+        // Add panels to frame
+        add(studentPanel);
+        add(adminPanel);
+
+        // Center window
+        setLocationRelativeTo(null);
+    }
+
+    private void handleStudentLogin() {
+        String regNumber = studentRegField.getText().trim();
+        String password = new String(studentPassField.getPassword());
+
+        if (regNumber.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter both registration number and password");
+            return;
+        }
+
+        Student student = system.authenticateStudent(regNumber, password);
+        if (student != null) {
+            new StudentDashboard(system, student).setVisible(true);
+            this.dispose();
+        } else {
+            JOptionPane.showMessageDialog(this, "Invalid registration number or password");
+        }
+    }
+
+    private void handleAdminLogin() {
+        String adminId = adminIdField.getText().trim();
+        String password = new String(adminPassField.getPassword());
+
+        // Simple admin authentication (in real system, use proper authentication)
+        if ("admin".equals(adminId) && "admin123".equals(password)) {
+            new AdminDashboard(system).setVisible(true);
+            this.dispose();
+        } else {
+            JOptionPane.showMessageDialog(this, "Invalid admin credentials");
+        }
+    }
+}
+
+/**
+ * Dashboard for students to view their information and seat assignments
+ */
+class StudentDashboard extends JFrame {
+    private SeatingSystem system;
+    private Student student;
+
+    public StudentDashboard(SeatingSystem system, Student student) {
+        this.system = system;
+        this.student = student;
+        setupUI();
+    }
+
+    private void setupUI() {
+        setTitle("Student Dashboard - " + student.getName());
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Header panel
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel welcomeLabel = new JLabel("Welcome, " + student.getName());
+        welcomeLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        headerPanel.add(welcomeLabel, BorderLayout.WEST);
+        
+        JButton logoutBtn = new JButton("Logout");
+        logoutBtn.addActionListener(e -> {
+            new LoginWindow().setVisible(true);
+            this.dispose();
+        });
+        headerPanel.add(logoutBtn, BorderLayout.EAST);
+        
+        add(headerPanel, BorderLayout.NORTH);
+
+        // Main content panel
+        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 10, 10));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Personal details panel
+        JPanel detailsPanel = new JPanel(new GridLayout(5, 1, 5, 5));
+        detailsPanel.setBorder(BorderFactory.createTitledBorder("Personal Details"));
+        detailsPanel.add(new JLabel("Registration Number: " + student.getRegistrationNumber()));
+        detailsPanel.add(new JLabel("Program: " + student.getProgram()));
+        detailsPanel.add(new JLabel("Semester: " + student.getSemester()));
+        
+        // Courses list
+        StringBuilder coursesText = new StringBuilder("Courses: ");
+        for (String course : student.getCourses()) {
+            coursesText.append(course).append(", ");
+        }
+        detailsPanel.add(new JLabel(coursesText.substring(0, coursesText.length() - 2)));
+        
+        contentPanel.add(detailsPanel);
+
+        // Seat assignment panel
+        JPanel seatPanel = new JPanel(new BorderLayout());
+        seatPanel.setBorder(BorderFactory.createTitledBorder("Exam Seat Assignment"));
+        
+        String seatInfo = system.getStudentSeat("MID_TERM_2023", student.getRegistrationNumber());
+        JTextArea seatText = new JTextArea();
+        seatText.setEditable(false);
+        seatText.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        if (seatInfo != null) {
+            seatText.setText("Exam: MID TERM 2023\n" +
+                             "Hall: " + seatInfo.split("-")[0] + "\n" +
+                             "Seat: " + seatInfo.split("-")[1] + "\n" +
+                             "Date: 15/05/2023");
+        } else {
+            seatText.setText("No seat assignment found for current exams.");
+        }
+        
+        seatPanel.add(new JScrollPane(seatText), BorderLayout.CENTER);
+        contentPanel.add(seatPanel);
+
+        add(contentPanel, BorderLayout.CENTER);
+        
+        // Center window
+        setLocationRelativeTo(null);
+    }
+}
+
+/**
+ * Dashboard for administrators to manage the system
+ */
+class AdminDashboard extends JFrame {
+    private SeatingSystem system;
+    private JTabbedPane tabbedPane;
+
+    public AdminDashboard(SeatingSystem system) {
+        this.system = system;
+        setupUI();
+    }
+
+    private void setupUI() {
+        setTitle("Admin Dashboard - Exam Seating System");
+        setSize(1000, 700);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Header panel
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel titleLabel = new JLabel("Exam Seating Arrangement System - Admin");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        
+        JButton logoutBtn = new JButton("Logout");
+        logoutBtn.addActionListener(e -> {
+            new LoginWindow().setVisible(true);
+            this.dispose();
+        });
+        headerPanel.add(logoutBtn, BorderLayout.EAST);
+        
+        add(headerPanel, BorderLayout.NORTH);
+
+        // Tabbed interface
+        tabbedPane = new JTabbedPane();
+        tabbedPane.addTab("Rooms", createRoomManagementPanel());
+        tabbedPane.addTab("Seating", createSeatingPanel());
+        tabbedPane.addTab("Reports", createReportsPanel());
+        
+        add(tabbedPane, BorderLayout.CENTER);
+        
+        // Center window
+        setLocationRelativeTo(null);
+    }
+
+    private JPanel createRoomManagementPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Form to add new rooms
+        JPanel formPanel = new JPanel(new GridLayout(4, 2, 5, 5));
+        formPanel.setBorder(BorderFactory.createTitledBorder("Add New Room"));
+        
+        JTextField roomIdField = new JTextField();
+        JTextField buildingField = new JTextField();
+        JTextField capacityField = new JTextField();
+        
+        formPanel.add(new JLabel("Room ID:"));
+        formPanel.add(roomIdField);
+        formPanel.add(new JLabel("Building:"));
+        formPanel.add(buildingField);
+        formPanel.add(new JLabel("Capacity:"));
+        formPanel.add(capacityField);
+        
+        JButton addButton = new JButton("Add Room");
+        addButton.addActionListener(e -> {
+            try {
+                String roomId = roomIdField.getText().trim();
+                String building = buildingField.getText().trim();
+                int capacity = Integer.parseInt(capacityField.getText().trim());
+                
+                if (roomId.isEmpty() || building.isEmpty()) {
+                    throw new IllegalArgumentException("Room ID and Building cannot be empty");
+                }
+                
+                system.addExamRoom(roomId, building, capacity);
+                JOptionPane.showMessageDialog(this, "Room added successfully!");
+                
+                // Refresh room list
+                ((JPanel)tabbedPane.getComponentAt(0)).remove(1);
+                ((JPanel)tabbedPane.getComponentAt(0)).add(createRoomListPanel(), BorderLayout.CENTER);
+                this.revalidate();
+                
+                // Clear fields
+                roomIdField.setText("");
+                buildingField.setText("");
+                capacityField.setText("");
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid number for capacity");
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage());
+            }
+        });
+        
+        formPanel.add(new JLabel(""));
+        formPanel.add(addButton);
+        
+        panel.add(formPanel, BorderLayout.NORTH);
+        panel.add(createRoomListPanel(), BorderLayout.CENTER);
+        
+        return panel;
+    }
+
+    private JPanel createRoomListPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("Existing Rooms"));
+        
+        // Column names
+        String[] columnNames = {"Room ID", "Building", "Capacity", "Available Seats"};
+        
+        // Create data for table
+        List<ExamRoom> rooms = system.getExamRooms();
+        Object[][] data = new Object[rooms.size()][4];
+        
+        for (int i = 0; i < rooms.size(); i++) {
+            ExamRoom room = rooms.get(i);
+            data[i][0] = room.getRoomId();
+            data[i][1] = room.getBuilding();
+            data[i][2] = room.getCapacity();
+            data[i][3] = room.getAvailableSeats();
+        }
+        
+        JTable roomTable = new JTable(data, columnNames);
+        roomTable.setFillsViewportHeight(true);
+        
+        panel.add(new JScrollPane(roomTable), BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createSeatingPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Controls panel
+        JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        controlsPanel.setBorder(BorderFactory.createTitledBorder("Generate Seating Arrangement"));
+        
+        JLabel examLabel = new JLabel("Exam:");
+        JComboBox<String> examCombo = new JComboBox<>(new String[]{"MID_TERM_2023", "FINAL_2023"});
+        JButton generateBtn = new JButton("Generate");
+        
+        JTextArea resultArea = new JTextArea(10, 50);
+        resultArea.setEditable(false);
+        
+        generateBtn.addActionListener(e -> {
+            String examId = (String)examCombo.getSelectedItem();
+            if (system.generateSeatingArrangement(examId)) {
+                resultArea.setText("Seating arrangement generated successfully for " + examId);
+            } else {
+                resultArea.setText("Failed to generate seating arrangement. Not enough seats available.");
+            }
+        });
+        
+        controlsPanel.add(examLabel);
+        controlsPanel.add(examCombo);
+        controlsPanel.add(generateBtn);
+        
+        panel.add(controlsPanel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(resultArea), BorderLayout.CENTER);
+        
+        return panel;
+    }
+
+    private JPanel createReportsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.add(new JLabel("Reports functionality will be implemented here", JLabel.CENTER), BorderLayout.CENTER);
+        return panel;
+    }
+}
